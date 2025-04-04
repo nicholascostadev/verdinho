@@ -142,35 +142,60 @@
     async function gerarQuadrantesNaArea(latMin, lonMin, latMax, lonMax) {
       const stepsLat = Math.ceil((latMax - latMin) / SQUARE_SIZE);
       const stepsLon = Math.ceil((lonMax - lonMin) / SQUARE_SIZE);
+      const BATCH_SIZE = 1; // Process 5 quadrants at a time to avoid overwhelming the APIs
 
       for (let i = 0; i < stepsLat; i++) {
-        for (let j = 0; j < stepsLon; j++) {
-          const lat = latMin + i * SQUARE_SIZE;
-          const lon = lonMin + j * SQUARE_SIZE;
+        for (let j = 0; j < stepsLon; j += BATCH_SIZE) {
+          const batchPromises = [];
+          
+          // Create a batch of promises for the current row
+          for (let k = 0; k < BATCH_SIZE && j + k < stepsLon; k++) {
+            const lat = latMin + i * SQUARE_SIZE;
+            const lon = lonMin + (j + k) * SQUARE_SIZE;
+            
+            batchPromises.push((async () => {
+              const [ndvi, data] = await Promise.all([
+                fetchNDVI(lat, lon),
+                fetchWeatherAndAirData(lat, lon)
+              ]);
 
-          const ndvi = await fetchNDVI(lat, lon);
-          const data = await fetchWeatherAndAirData(lat, lon);
+              if (data) {
+                const aqi = data.airQuality.list[0].main.aqi;
+                const N = calculateReforestationIndex(ndvi, aqi);
+                const ia = await consultarMelhorPlanta(data, lat, lon);
 
-          if (data) {
-            const aqi = data.airQuality.list[0].main.aqi;
-            const N = calculateReforestationIndex(ndvi, aqi);
-            const ia = await consultarMelhorPlanta(data, lat, lon);
-
-            L.rectangle([[lat, lon], [lat + SQUARE_SIZE, lon + SQUARE_SIZE]], {
-              color: colorByReforestationNeed(N),
-              weight: 1,
-              fillOpacity: 0.6
-            })
-              .bindPopup(`
-                🌿 <strong>Planta:</strong> ${ia.planta_recomendada}<br>
-                🛰️ <strong>NDVI:</strong> ${ndvi.toFixed(2)}<br>
-                💨 <strong>AQI:</strong> ${aqi}<br>
-                🌱 <strong>Nível:</strong> ${getReforestationNeedLevel(N)}<br>
-                🌎 <strong>Bioma:</strong> ${ia.bioma}<br>
-                🗺️ <strong>Região:</strong> ${ia.regiao}
-              `)
-              .addTo(map);
+                return {
+                  bounds: [[lat, lon], [lat + SQUARE_SIZE, lon + SQUARE_SIZE]],
+                  color: colorByReforestationNeed(N),
+                  popup: `
+                    🌿 <strong>Planta:</strong> ${ia.planta_recomendada}<br>
+                    🛰️ <strong>NDVI:</strong> ${ndvi.toFixed(2)}<br>
+                    💨 <strong>AQI:</strong> ${aqi}<br>
+                    🌱 <strong>Nível:</strong> ${getReforestationNeedLevel(N)}<br>
+                    🌎 <strong>Bioma:</strong> ${ia.bioma}<br>
+                    🗺️ <strong>Região:</strong> ${ia.regiao}
+                  `
+                };
+              }
+              return null;
+            })());
           }
+
+          // Wait for all promises in the batch to resolve
+          const results = await Promise.all(batchPromises);
+          
+          // Add valid results to the map
+          results.forEach(result => {
+            if (result) {
+              L.rectangle(result.bounds, {
+                color: result.color,
+                weight: 1,
+                fillOpacity: 0.6
+              })
+                .bindPopup(result.popup)
+                .addTo(map);
+            }
+          });
         }
       }
     }

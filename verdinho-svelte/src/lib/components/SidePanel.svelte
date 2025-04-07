@@ -1,0 +1,135 @@
+<script lang="ts">
+	import { mapState, type QuadrantData } from '$lib/stores/mapStore.svelte';
+
+	function formatDate(timestamp: number): string {
+		return new Date(timestamp).toLocaleString('pt-BR');
+	}
+
+	function getBiomeDistribution(quadrants: QuadrantData[]): Record<string, number> {
+		const distribution: Record<string, number> = {};
+
+		for (const quadrant of quadrants) {
+			const bioma = quadrant.plantRecommendation.bioma;
+			if (bioma) {
+				distribution[bioma] = (distribution[bioma] || 0) + 1;
+			}
+		}
+
+		return distribution;
+	}
+
+	function getRecommendedPlants(quadrants: QuadrantData[]): Record<string, number> {
+		const plants: Record<string, number> = {};
+
+		for (const quadrant of quadrants) {
+			const planta = quadrant.plantRecommendation.planta_recomendada;
+			if (planta && planta !== 'Erro IA') {
+				plants[planta] = (plants[planta] || 0) + 1;
+			}
+		}
+
+		// Sort by frequency
+		return Object.entries(plants)
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 5)
+			.reduce(
+				(acc, [key, value]) => {
+					acc[key] = value;
+					return acc;
+				},
+				{} as Record<string, number>
+			);
+	}
+
+	function getNeedLevelDistribution(quadrants: QuadrantData[]): Record<string, number> {
+		const distribution: Record<string, number> = {};
+
+		for (const quadrant of quadrants) {
+			const level = quadrant.needLevel;
+			distribution[level] = (distribution[level] || 0) + 1;
+		}
+
+		return distribution;
+	}
+</script>
+
+<div
+	class="absolute right-5 top-5 z-[1000] max-h-[calc(100vh-40px)] w-[300px] overflow-y-auto rounded-lg bg-white p-5 shadow-md"
+	class:opacity-70={mapState.isProcessing}
+>
+	<h2 class="mb-4 mt-0 text-xl font-semibold text-gray-800">Análise de Reflorestamento</h2>
+
+	<div class="mb-3 flex items-center">
+		<input
+			type="checkbox"
+			id="enableNdvi"
+			defaultChecked={mapState.enableNdvi}
+			bind:checked={mapState.enableNdvi}
+			class="mr-2 h-4 w-4"
+		/>
+		<label for="enableNdvi" class="text-sm font-medium text-gray-700">Habilitar NDVI</label>
+	</div>
+
+	{#if mapState.isProcessing}
+		<div class="flex min-h-[200px] flex-col items-center justify-center">
+			<p>Analisando área selecionada...</p>
+			<div
+				class="mt-5 h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"
+			></div>
+		</div>
+	{:else if mapState.quadrants.length > 0}
+		<div class="analysis-results">
+			<div class="mb-5">
+				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Informações da Área</h3>
+				<p>
+					<strong>Coordenadas:</strong><br />
+					Lat: {mapState.selectedArea?.latMin?.toFixed(4)} a {mapState.selectedArea?.latMax?.toFixed(
+						4
+					)}<br />
+					Lon: {mapState.selectedArea?.lonMin?.toFixed(4)} a {mapState.selectedArea?.lonMax?.toFixed(
+						4
+					)}
+				</p>
+				<p><strong>Quadrantes analisados:</strong> {mapState.quadrants.length}</p>
+				<p>
+					<strong>Última análise:</strong>
+					{mapState.lastAnalyzedArea ? formatDate(mapState.lastAnalyzedArea.timestamp) : 'N/A'}
+				</p>
+			</div>
+
+			<div class="mb-5">
+				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Biomas Identificados</h3>
+				<ul>
+					{#each Object.entries(getBiomeDistribution(mapState.quadrants)) as [biome, count] (biome)}
+						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{biome}: {count} quadrantes</li>
+					{/each}
+				</ul>
+			</div>
+
+			<div class="mb-5">
+				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Plantas Recomendadas</h3>
+				<ul>
+					{#each Object.entries(getRecommendedPlants(mapState.quadrants)) as [plant, count] (plant)}
+						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{plant}: {count} quadrantes</li>
+					{/each}
+				</ul>
+			</div>
+
+			<div class="mb-5">
+				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Distribuição de Necessidade</h3>
+				<ul>
+					{#each Object.entries(getNeedLevelDistribution(mapState.quadrants)) as [level, count] (level)}
+						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{level}: {count} quadrantes</li>
+					{/each}
+				</ul>
+			</div>
+		</div>
+	{:else if mapState.selectedArea}
+		<p>Selecione uma área no mapa para análise de reflorestamento.</p>
+	{:else}
+		<div class="mt-5 border-l-4 border-blue-500 bg-gray-100 p-4">
+			<p>Desenhe um retângulo no mapa para analisar área de reflorestamento.</p>
+			<p>Use a ferramenta de desenho no canto superior direito do mapa.</p>
+		</div>
+	{/if}
+</div>

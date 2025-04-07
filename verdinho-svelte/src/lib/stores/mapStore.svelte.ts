@@ -1,7 +1,7 @@
 export type PlantRecommendation = {
-	planta_recomendada: string;
-	bioma: string;
-	regiao: string;
+	recommended_plant: string;
+	biome: string;
+	region: string;
 };
 
 export type QuadrantData = {

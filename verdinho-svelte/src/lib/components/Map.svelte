@@ -12,8 +12,8 @@
 	let map: Map | null = $state(null);
 	let drawnItems: FeatureGroup | null = $state(null);
 	// We need to use any because of how we dynamically import Leaflet
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let L: any;
+
+	let L: typeof import('leaflet');
 
 	const OWM_API_KEY = 'ed5dbe9896c14fb2526e2c777a124718';
 	const SQUARE_SIZE = $state(0.005);
@@ -43,11 +43,7 @@
 			// Fix the "type is not defined" error by defining the missing readableArea function
 			if (L.GeometryUtil) {
 				// Make sure readableArea has the necessary type parameter by implementing it directly
-				L.GeometryUtil.readableArea = function (
-					area: number,
-					isMetric: boolean,
-					precision?: number
-				) {
+				L.GeometryUtil.readableArea = function (area, isMetric, precision) {
 					// This variable is needed by other parts of the leaflet-draw code
 					const type = isMetric ? 'metric' : 'imperial';
 
@@ -59,32 +55,30 @@
 
 					if (isMetric) {
 						if (area >= 10000) {
-							return L.GeometryUtil.formattedNumber(area * 0.0001, precision) + ' ha';
+							return L.GeometryUtil.formattedNumber(String(area * 0.0001), precision) + ' ha';
 						} else {
-							return L.GeometryUtil.formattedNumber(area, precision) + ' m²';
+							return L.GeometryUtil.formattedNumber(String(area), precision) + ' m²';
 						}
 					} else {
 						const acres = area * 0.00024711;
 						if (acres >= 1) {
-							return L.GeometryUtil.formattedNumber(acres, precision) + ' acres';
+							return L.GeometryUtil.formattedNumber(String(acres), precision) + ' acres';
 						} else {
-							return L.GeometryUtil.formattedNumber(area, precision) + ' ft²';
+							return L.GeometryUtil.formattedNumber(String(area), precision) + ' ft²';
 						}
 					}
 				};
 			}
 
 			if (L.drawLocal && L.drawLocal.draw && L.drawLocal.draw.handlers) {
-				// Override the rectangle handler with complete configuration
 				L.drawLocal.draw.handlers.rectangle = {
 					tooltip: {
 						start: 'Clique e arraste para desenhar uma área.'
-					},
-					radius: 'Raio'
+					}
 				};
 
-				// Portuguese translation for Leaflet Draw
 				L.drawLocal.draw.toolbar.buttons.rectangle = 'Desenhar um retângulo';
+				L.drawLocal.draw.handlers.simpleshape.tooltip.end = 'Solte para finalizar';
 				L.drawLocal.draw.toolbar.actions.title = 'Cancelar desenho';
 				L.drawLocal.draw.toolbar.actions.text = 'Cancelar';
 				L.drawLocal.draw.toolbar.finish.title = 'Finalizar desenho';

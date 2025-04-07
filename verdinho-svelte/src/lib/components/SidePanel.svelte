@@ -9,9 +9,9 @@
 		const distribution: Record<string, number> = {};
 
 		for (const quadrant of quadrants) {
-			const bioma = quadrant.plantRecommendation.bioma;
-			if (bioma) {
-				distribution[bioma] = (distribution[bioma] || 0) + 1;
+			const biome = quadrant.plantRecommendation.biome;
+			if (biome) {
+				distribution[biome] = (distribution[biome] || 0) + 1;
 			}
 		}
 
@@ -22,9 +22,9 @@
 		const plants: Record<string, number> = {};
 
 		for (const quadrant of quadrants) {
-			const planta = quadrant.plantRecommendation.planta_recomendada;
-			if (planta && planta !== 'Erro IA') {
-				plants[planta] = (plants[planta] || 0) + 1;
+			const plant = quadrant.plantRecommendation.recommended_plant;
+			if (plant && plant !== 'Erro IA') {
+				plants[plant] = (plants[plant] || 0) + 1;
 			}
 		}
 

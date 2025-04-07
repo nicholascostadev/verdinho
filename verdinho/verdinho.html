@@ -142,7 +142,7 @@
     async function gerarQuadrantesNaArea(latMin, lonMin, latMax, lonMax) {
       const stepsLat = Math.ceil((latMax - latMin) / SQUARE_SIZE);
       const stepsLon = Math.ceil((lonMax - lonMin) / SQUARE_SIZE);
-      const BATCH_SIZE = 1; // Process 5 quadrants at a time to avoid overwhelming the APIs
+      const BATCH_SIZE = 5; // Process 5 quadrants at a time to avoid overwhelming the APIs
 
       for (let i = 0; i < stepsLat; i++) {
         for (let j = 0; j < stepsLon; j += BATCH_SIZE) {

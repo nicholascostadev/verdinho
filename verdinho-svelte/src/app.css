@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Leaflet popup styles with Tailwind */
+.leaflet-popup-content-wrapper {
+  @apply !rounded-md shadow-lg !p-0 overflow-hidden;
+}
+
+/* Leaflet container styles */
+.leaflet-container {
+  @apply w-full h-full;
+}
+
+/* Make sure popups are readable */
+.leaflet-popup-content {
+  @apply !m-0 !p-3;
+}
+
+/* Custom popup styling */
+.leaflet-popup-content-custom strong {
+  @apply font-semibold;
+}

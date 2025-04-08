@@ -9,6 +9,7 @@ Este projeto é uma aplicação que utiliza inteligência artificial para recome
 - Google Earth Engine account (para funcionalidades de NDVI)
 - Google Cloud SDK (gcloud)
 - Earth Engine Python API
+- Node.js 18+ e pnpm (para o frontend Svelte)
 
 ### Instalação do Google Cloud SDK e Earth Engine
 
@@ -58,12 +59,14 @@ git clone [URL_DO_REPOSITÓRIO]
 cd "Projeto Verdinho 1.5"
 ```
 
-2. Crie um ambiente virtual Python:
+### Backend (Python)
+
+1. Crie um ambiente virtual Python:
 ```bash
 python -m venv venv
 ```
 
-3. Ative o ambiente virtual:
+2. Ative o ambiente virtual:
 
 No Linux/Mac:
 ```bash
@@ -75,21 +78,37 @@ No Windows:
 .\venv\Scripts\activate
 ```
 
-4. Instale as dependências:
+3. Instale as dependências:
 ```bash
 cd ia
 pip install -r requirements.txt
 ```
 
-5. Configure o Google Earth Engine:
-   - Crie uma conta no [Google Earth Engine](https://earthengine.google.com/)
-   - Certifique-se de ter as seguintes permissões no projeto:
-     1. Gravador de recursos do Earth Engine (Earth Engine Resource Writer)
-     2. Consumidor do Service Usage (Service Usage Consumer)
-   - Execute o comando de autenticação:
-   ```bash
-   earthengine authenticate
-   ```
+### Frontend (Svelte)
+
+1. Instale pnpm (se ainda não tiver):
+```bash
+npm install -g pnpm
+```
+
+2. Instale as dependências do frontend:
+```bash
+cd verdinho-svelte
+pnpm install
+```
+
+3. Crie um arquivo `.env` baseado no `.env.example`:
+```bash
+cp .env.example .env
+```
+
+4. Configure as variáveis de ambiente conforme necessário.
+
+5. Inicie o servidor de desenvolvimento:
+```bash
+cd verdinho-svelte
+pnpm dev
+```
 
 ## Estrutura do Projeto
 
@@ -98,9 +117,14 @@ pip install -r requirements.txt
   - `geolocalizacao.py` - Módulo de geolocalização
   - `*.joblib` - Modelos de machine learning
   - `*.csv` - Datasets e embeddings
-- `verdinho/` - Diretório do frontend
+- `verdinho-svelte/` - Diretório do frontend Svelte
+  - `src/` - Código fonte do frontend
+  - `src/routes/` - Rotas da aplicação
+  - `src/lib/` - Componentes e utilitários
 
 ## Executando o Projeto
+
+### Backend
 
 1. Certifique-se de que o ambiente virtual está ativado
 
@@ -112,6 +136,28 @@ python api_ia.py
 
 O servidor estará disponível em `http://localhost:5000`
 
+### Frontend
+
+1. Inicie o servidor de desenvolvimento Svelte:
+```bash
+cd verdinho-svelte
+pnpm dev
+```
+
+O frontend estará disponível em `http://localhost:5173`
+
+2. Para construir para produção:
+```bash
+cd verdinho-svelte
+pnpm build
+```
+
+3. Para visualizar a versão de produção localmente:
+```bash
+cd verdinho-svelte
+pnpm preview
+```
+
 ## Endpoints da API
 
 - `/recomendar` (POST) - Recomenda plantas baseado em condições ambientais
@@ -122,9 +168,9 @@ O servidor estará disponível em `http://localhost:5000`
 ## Desenvolvimento
 
 Para desenvolvimento, recomenda-se:
-1. Manter o ambiente virtual ativado durante o desenvolvimento
-2. Usar um editor com suporte a Python (VS Code recomendado)
-3. Instalar extensões Python relevantes no VS Code
+1. Manter o ambiente virtual ativado durante o desenvolvimento do backend
+2. Usar um editor com suporte a Python e TypeScript (VS Code recomendado)
+3. Instalar extensões relevantes no VS Code (Python, Svelte, ESLint, Prettier)
 
 ## Solução de Problemas
 
@@ -132,6 +178,11 @@ Se encontrar problemas com o Google Earth Engine:
 1. Verifique se sua conta está ativa
 2. Reautentique usando `earthengine authenticate`
 3. Verifique se o projeto 'ndvi-reflorestamento' está configurado corretamente
+
+Para problemas com o frontend:
+1. Verifique se todas as dependências estão instaladas corretamente (`pnpm install`)
+2. Limpe o cache do navegador e reinicie o servidor de desenvolvimento
+3. Verifique as variáveis de ambiente no arquivo `.env`
 
 ## Contribuindo
 

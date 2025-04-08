@@ -129,7 +129,7 @@
 	{:else}
 		<div class="mt-5 border-l-4 border-blue-500 bg-gray-100 p-4">
 			<p>Desenhe um retângulo no mapa para analisar área de reflorestamento.</p>
-			<p>Use a ferramenta de desenho no canto superior direito do mapa.</p>
+			<p>Use a ferramenta de desenho no canto superior esquerdo do mapa.</p>
 		</div>
 	{/if}
 </div>

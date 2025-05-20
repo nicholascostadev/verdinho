@@ -20,12 +20,12 @@
 	const SQUARE_SIZE = $state(0.005);
 
 	const popupClasses = () => ({
-		header: `!bg-[#FF0000] !py-2 !px-3 !rounded-t-md !-mx-3 !-mt-2 !mb-3 !font-bold !text-center`,
-		body: '!text-sm !leading-relaxed',
-		row: '!mb-2 !flex !items-center',
-		icon: '!min-w-6 !text-center !mr-2',
-		label: '!font-semibold',
-		value: '!ml-1'
+		header: `bg-[#FF0000]! py-2! px-3! rounded-t-md! -mx-3! -mt-2! mb-3! font-bold! text-center!`,
+		body: 'text-sm! leading-relaxed!',
+		row: 'mb-2! flex! items-center!',
+		icon: 'min-w-6! text-center! mr-2!',
+		label: 'font-semibold!',
+		value: 'ml-1!'
 	});
 
 	$effect(() => {

@@ -30,7 +30,7 @@
 </script>
 
 <div
-	class="absolute right-5 top-5 z-[1000] max-h-[calc(100vh-40px)] w-[300px] overflow-y-auto rounded-lg bg-white p-5 shadow-md"
+	class="absolute right-5 top-5 z-1000 max-h-[calc(100vh-40px)] w-[300px] overflow-y-auto rounded-lg bg-white p-5 shadow-md"
 	class:opacity-70={mapState.isProcessing}
 >
 	<h2 class="mb-4 mt-0 text-xl font-semibold text-gray-800">Análise de Reflorestamento</h2>
@@ -66,7 +66,7 @@
 				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Biomas Identificados</h3>
 				<ul>
 					{#each Object.entries(getBiomeDistribution(mapState.quadrants)) as [biome, count] (biome)}
-						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{biome}: {count} quadrantes</li>
+						<li class="mb-2 rounded-sm bg-gray-100 px-2 py-1">{biome}: {count} quadrantes</li>
 					{/each}
 				</ul>
 			</div> -->
@@ -75,7 +75,7 @@
 				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Plantas Recomendadas</h3>
 				<ul>
 					{#each Object.entries(getRecommendedPlants(mapState.quadrants)) as [plant, count] (plant)}
-						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{plant}: {count} quadrantes</li>
+						<li class="mb-2 rounded-sm bg-gray-100 px-2 py-1">{plant}: {count} quadrantes</li>
 					{/each}
 				</ul>
 			</div>
@@ -84,7 +84,7 @@
 				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Distribuição de Necessidade</h3>
 				<ul>
 					{#each Object.entries(getNeedLevelDistribution(mapState.quadrants)) as [level, count] (level)}
-						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{level}: {count} quadrantes</li>
+						<li class="mb-2 rounded-sm bg-gray-100 px-2 py-1">{level}: {count} quadrantes</li>
 					{/each}
 				</ul>
 			</div> -->

@@ -7,6 +7,7 @@
 		LeafletEventHandlerFn
 	} from 'leaflet';
 	import { mapState, type QuadrantData } from '$lib/stores/mapStore.svelte';
+	import { getRecommendedPlant } from '../../services/http/get-recommended-plant';
 
 	let mapContainer: HTMLElement | null = $state(null);
 	let map: Map | null = $state(null);
@@ -15,11 +16,11 @@
 
 	let L: typeof import('leaflet');
 
-	const OWM_API_KEY = 'ed5dbe9896c14fb2526e2c777a124718';
+	// const OWM_API_KEY = 'ed5dbe9896c14fb2526e2c777a124718';
 	const SQUARE_SIZE = $state(0.005);
 
-	const popupClasses = (N: number) => ({
-		header: `!bg-[${colorByReforestationNeed(N)}] !py-2 !px-3 !rounded-t-md !-mx-3 !-mt-2 !mb-3 !font-bold !text-center`,
+	const popupClasses = () => ({
+		header: `!bg-[#FF0000] !py-2 !px-3 !rounded-t-md !-mx-3 !-mt-2 !mb-3 !font-bold !text-center`,
 		body: '!text-sm !leading-relaxed',
 		row: '!mb-2 !flex !items-center',
 		icon: '!min-w-6 !text-center !mr-2',
@@ -190,104 +191,6 @@
 		};
 	});
 
-	async function fetchNDVI(lat: number, lon: number) {
-		try {
-			const res = await fetch('http://localhost:5000/ndvi-real', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ lat, lon })
-			});
-			const data = await res.json();
-			return data.ndvi ?? -0.1;
-		} catch (error) {
-			console.error('Erro NDVI:', error);
-			return -0.1;
-		}
-	}
-
-	type WeatherData = {
-		weather: {
-			main: {
-				temp: number;
-				humidity: number;
-				pressure: number;
-			};
-		};
-		airQuality: {
-			list: [
-				{
-					main: { aqi: number };
-					components: { co: number };
-				}
-			];
-		};
-	};
-
-	async function fetchWeatherAndAirData(lat: number, lon: number): Promise<WeatherData | null> {
-		const weatherURL = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_API_KEY}&units=metric&lang=pt_br`;
-		const airURL = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OWM_API_KEY}`;
-		try {
-			const weatherRes = await fetch(weatherURL);
-			const airRes = await fetch(airURL);
-			return {
-				weather: await weatherRes.json(),
-				airQuality: await airRes.json()
-			};
-		} catch (error) {
-			console.error('Erro clima/ar:', error);
-			return null;
-		}
-	}
-
-	async function consultarMelhorPlanta(data: WeatherData, lat: number, lon: number) {
-		try {
-			const res = await fetch('http://127.0.0.1:5000/melhor-planta', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					temperatura: data.weather.main.temp,
-					umidade: data.weather.main.humidity,
-					pressao: data.weather.main.pressure,
-					co: data.airQuality.list[0].components.co,
-					aqi: data.airQuality.list[0].main.aqi,
-					lat,
-					lon
-				})
-			});
-			return await res.json();
-		} catch (error) {
-			console.error('Erro consulta planta:', error);
-			return { planta_recomendada: 'Erro IA', bioma: '-', regiao: '-' };
-		}
-	}
-
-	function calculateReforestationIndex(ndvi: number, aqi: number) {
-		if (!mapState.enableNdvi) {
-			// If NDVI is disabled, only consider air quality
-			return Math.min(aqi / 5, 1);
-		}
-
-		const ndviNorm = 1 - (ndvi + 1) / 2;
-		const aqiNorm = Math.min(aqi / 5, 1);
-		return 0.5 * ndviNorm + 0.5 * aqiNorm;
-	}
-
-	function getReforestationNeedLevel(N: number) {
-		if (N <= 0.2) return 'Sem Necessidade';
-		if (N <= 0.4) return 'Baixa Necessidade';
-		if (N <= 0.6) return 'Necessidade Moderada';
-		if (N <= 0.8) return 'Necessidade Alta';
-		return 'Necessidade Extrema';
-	}
-
-	function colorByReforestationNeed(N: number) {
-		if (N <= 0.2) return '#008000';
-		if (N <= 0.4) return '#9ACD32';
-		if (N <= 0.6) return '#FFD700';
-		if (N <= 0.8) return '#FFA500';
-		return '#FF0000';
-	}
-
 	async function gerarQuadrantesNaArea(
 		latMin: number,
 		lonMin: number,
@@ -304,7 +207,7 @@
 
 		const stepsLat = Math.ceil((latMax - latMin) / SQUARE_SIZE);
 		const stepsLon = Math.ceil((lonMax - lonMin) / SQUARE_SIZE);
-		const BATCH_SIZE = 1; // Process quadrants one at a time to avoid overwhelming the APIs
+		const BATCH_SIZE = 4; // Process quadrants one at a time to avoid overwhelming the APIs
 
 		const newQuadrants: QuadrantData[] = [];
 
@@ -319,71 +222,76 @@
 
 					batchPromises.push(
 						(async () => {
-							const [ndvi, data] = await Promise.all([
-								mapState.enableNdvi ? fetchNDVI(lat, lon) : Promise.resolve(0),
-								fetchWeatherAndAirData(lat, lon)
-							]);
+							const recommendedPlantForArea = await getRecommendedPlant({
+								latMin,
+								lonMin,
+								latMax,
+								lonMax
+							});
 
-							if (data) {
-								const aqi = data.airQuality.list[0].main.aqi;
-								// Use a default NDVI value of 0 if NDVI is disabled
-								const N = calculateReforestationIndex(ndvi, aqi);
-								const ia = await consultarMelhorPlanta(data, lat, lon);
-
+							if (recommendedPlantForArea) {
 								// Create quadrant data for store
 								const quadrantData: QuadrantData = {
 									lat,
 									lon,
-									ndvi,
-									aqi,
-									refIndex: N,
-									needLevel: getReforestationNeedLevel(N),
-									plantRecommendation: ia
+									plantRecommendation: recommendedPlantForArea.prediction,
+									analyzedAreaData: recommendedPlantForArea.features_used
 								};
 
 								newQuadrants.push(quadrantData);
 
-								const popup = popupClasses(N);
+								const popup = popupClasses();
+
+								const bodyWrapper = document.createElement('div');
+								bodyWrapper.classList.add(...popup.body.split(' '));
+
+								for (const key in recommendedPlantForArea.prediction) {
+									const rowWrapper = document.createElement('div');
+									rowWrapper.classList.add(...popup.row.split(' '));
+
+									const icon = document.createElement('span');
+									icon.classList.add(...popup.icon.split(' '));
+
+									const label = document.createElement('strong');
+									label.classList.add(...popup.label.split(' '));
+
+									const value = document.createElement('span');
+									value.classList.add(...popup.value.split(' '));
+									value.textContent = `${key}: ${recommendedPlantForArea.prediction[key as keyof typeof recommendedPlantForArea.prediction]}`;
+
+									rowWrapper.appendChild(icon);
+									rowWrapper.appendChild(label);
+									rowWrapper.appendChild(value);
+									bodyWrapper.appendChild(rowWrapper);
+								}
+
+								for (const key in recommendedPlantForArea.features_used) {
+									const rowWrapper = document.createElement('div');
+									rowWrapper.classList.add(...popup.row.split(' '));
+
+									const icon = document.createElement('span');
+									icon.classList.add(...popup.icon.split(' '));
+
+									const label = document.createElement('strong');
+									label.classList.add(...popup.label.split(' '));
+
+									const value = document.createElement('span');
+									value.classList.add(...popup.value.split(' '));
+									value.textContent = `${key}: ${recommendedPlantForArea.features_used[key as keyof typeof recommendedPlantForArea.features_used]}`;
+
+									rowWrapper.appendChild(icon);
+									rowWrapper.appendChild(label);
+									rowWrapper.appendChild(value);
+									bodyWrapper.appendChild(rowWrapper);
+								}
 
 								return {
 									bounds: [
 										[lat, lon],
 										[lat + SQUARE_SIZE, lon + SQUARE_SIZE]
 									] as LatLngBoundsExpression,
-									color: colorByReforestationNeed(N),
-									popup: `
-									<div class="${popup.header}">
-										${getReforestationNeedLevel(N)}
-									</div>
-									<div class="${popup.body}">
-										<div class="${popup.row}">
-											<span class="${popup.icon}">🌿</span>
-											<strong class="${popup.label}">Planta:</strong> <span class="${popup.value}">${ia.planta_recomendada}</span>
-										</div>
-										${
-											mapState.enableNdvi
-												? `
-										<div class="${popup.row}">
-											<span class="${popup.icon}">🛰️</span>
-											<strong class="${popup.label}">NDVI:</strong> <span class="${popup.value}">${ndvi.toFixed(2)}</span>
-										</div>
-										`
-												: ''
-										}
-										<div class="${popup.row}">
-											<span class="${popup.icon}">💨</span>
-											<strong class="${popup.label}">AQI:</strong> <span class="${popup.value}">${aqi}</span>
-										</div>
-										<div class="${popup.row}">
-											<span class="${popup.icon}">🌎</span>
-											<strong class="${popup.label}">Bioma:</strong> <span class="${popup.value}">${ia.bioma}</span>
-										</div>
-										<div class="${popup.row}">
-											<span class="${popup.icon}">🗺️</span>
-											<strong class="${popup.label}">Região:</strong> <span class="${popup.value}">${ia.regiao}</span>
-										</div>
-									</div>
-                `
+									color: '#FF0000',
+									popup: bodyWrapper
 								};
 							}
 							return null;

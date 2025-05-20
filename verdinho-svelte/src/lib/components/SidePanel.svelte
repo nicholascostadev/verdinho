@@ -5,24 +5,11 @@
 		return new Date(timestamp).toLocaleString('pt-BR');
 	}
 
-	function getBiomeDistribution(quadrants: QuadrantData[]): Record<string, number> {
-		const distribution: Record<string, number> = {};
-
-		for (const quadrant of quadrants) {
-			const biome = quadrant.plantRecommendation.biome;
-			if (biome) {
-				distribution[biome] = (distribution[biome] || 0) + 1;
-			}
-		}
-
-		return distribution;
-	}
-
 	function getRecommendedPlants(quadrants: QuadrantData[]): Record<string, number> {
 		const plants: Record<string, number> = {};
 
 		for (const quadrant of quadrants) {
-			const plant = quadrant.plantRecommendation.recommended_plant;
+			const plant = quadrant.plantRecommendation.cientific_name;
 			if (plant && plant !== 'Erro IA') {
 				plants[plant] = (plants[plant] || 0) + 1;
 			}
@@ -40,17 +27,6 @@
 				{} as Record<string, number>
 			);
 	}
-
-	function getNeedLevelDistribution(quadrants: QuadrantData[]): Record<string, number> {
-		const distribution: Record<string, number> = {};
-
-		for (const quadrant of quadrants) {
-			const level = quadrant.needLevel;
-			distribution[level] = (distribution[level] || 0) + 1;
-		}
-
-		return distribution;
-	}
 </script>
 
 <div
@@ -58,17 +34,6 @@
 	class:opacity-70={mapState.isProcessing}
 >
 	<h2 class="mb-4 mt-0 text-xl font-semibold text-gray-800">Análise de Reflorestamento</h2>
-
-	<div class="mb-3 flex items-center">
-		<input
-			type="checkbox"
-			id="enableNdvi"
-			defaultChecked={mapState.enableNdvi}
-			bind:checked={mapState.enableNdvi}
-			class="mr-2 h-4 w-4"
-		/>
-		<label for="enableNdvi" class="text-sm font-medium text-gray-700">Habilitar NDVI</label>
-	</div>
 
 	{#if mapState.isProcessing}
 		<div class="flex min-h-[200px] flex-col items-center justify-center">
@@ -97,14 +62,14 @@
 				</p>
 			</div>
 
-			<div class="mb-5">
+			<!-- <div class="mb-5">
 				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Biomas Identificados</h3>
 				<ul>
 					{#each Object.entries(getBiomeDistribution(mapState.quadrants)) as [biome, count] (biome)}
 						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{biome}: {count} quadrantes</li>
 					{/each}
 				</ul>
-			</div>
+			</div> -->
 
 			<div class="mb-5">
 				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Plantas Recomendadas</h3>
@@ -115,14 +80,14 @@
 				</ul>
 			</div>
 
-			<div class="mb-5">
+			<!-- <div class="mb-5">
 				<h3 class="mb-2 mt-5 text-lg font-medium text-gray-700">Distribuição de Necessidade</h3>
 				<ul>
 					{#each Object.entries(getNeedLevelDistribution(mapState.quadrants)) as [level, count] (level)}
 						<li class="mb-2 rounded bg-gray-100 px-2 py-1">{level}: {count} quadrantes</li>
 					{/each}
 				</ul>
-			</div>
+			</div> -->
 		</div>
 	{:else if mapState.selectedArea}
 		<p>Selecione uma área no mapa para análise de reflorestamento.</p>

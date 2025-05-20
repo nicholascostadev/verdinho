@@ -1,17 +1,25 @@
 export type PlantRecommendation = {
-	recommended_plant: string;
-	biome: string;
-	region: string;
+	class: string;
+	family: string;
+	order: string;
+	gender: string;
+	cientific_name: string;
+};
+
+export type AnalyzedAreaData = {
+	latitude: number;
+	longitude: number;
+	anual_mean_temperature: number;
+	anual_mean_precipitation: number;
+	isothermality: number;
+	temperature_seasonality: number;
 };
 
 export type QuadrantData = {
 	lat: number;
 	lon: number;
-	ndvi: number;
-	aqi: number;
-	refIndex: number;
-	needLevel: string;
 	plantRecommendation: PlantRecommendation;
+	analyzedAreaData: AnalyzedAreaData;
 };
 
 class MapState {
@@ -25,8 +33,6 @@ class MapState {
 	quadrants: QuadrantData[] = $state([]);
 
 	isProcessing: boolean = $state(false);
-
-	enableNdvi: boolean = $state(false);
 
 	lastAnalyzedArea: {
 		latMin: number;

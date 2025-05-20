@@ -241,7 +241,7 @@
 
 	async function consultarMelhorPlanta(data: WeatherData, lat: number, lon: number) {
 		try {
-			const res = await fetch('http://localhost:5000/melhor-planta', {
+			const res = await fetch('http://127.0.0.1:5000/melhor-planta', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

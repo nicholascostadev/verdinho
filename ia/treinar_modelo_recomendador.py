@@ -6,7 +6,7 @@ from sklearn.metrics import classification_report
 import joblib
 
 # Carrega o dataset
-df = pd.read_csv("dataset_recomendador.csv")
+df = pd.read_csv("dataset_reflorestamento.csv")
 
 # Codifica o nome da planta como número
 le = LabelEncoder()

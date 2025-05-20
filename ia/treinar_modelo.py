@@ -6,7 +6,7 @@ from sklearn.metrics import classification_report
 import joblib  # Para salvar o modelo
 
 # Carrega o dataset
-df = pd.read_csv("ia/dataset_reflorestamento.csv")
+df = pd.read_csv("dataset_reflorestamento.csv")
 
 
 # Converte nomes de plantas em números (Label Encoding)
@@ -15,7 +15,7 @@ df["planta_encoded"] = le.fit_transform(df["planta"])
 
 # Define as features (entradas) e o label (saída)
 X = df[["temperatura", "umidade", "pressao", "co", "aqi", "planta_encoded"]]
-y = df["label"]
+y = df["planta"]
 
 # Divide em treino e teste
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

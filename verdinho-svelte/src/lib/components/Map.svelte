@@ -9,8 +9,7 @@
 
 	let L: typeof import('leaflet');
 
-	// const OWM_API_KEY = 'ed5dbe9896c14fb2526e2c777a124718';
-	const SQUARE_SIZE = $state(0.005);
+	const SQUARE_SIZE = 0.005;
 
 	const popupClasses = () => ({
 		header: `bg-[#FF0000]! py-2! px-3! rounded-t-md! -mx-3! -mt-2! mb-3! font-bold! text-center!`,
@@ -26,7 +25,6 @@
 	$effect(() => {
 		const createMap = async () => {
 			// Dynamically import Leaflet only on client side
-
 			const [leaflet] = await Promise.all([
 				await import('leaflet'),
 				// Import the CSS
@@ -221,6 +219,7 @@
 			const processBatch = async () => {
 				await Promise.all(
 					batch.map(async (quadrant) => {
+						if (!map) return;
 						try {
 							const recommendedPlantForArea = await getRecommendedPlant({
 								latMin: quadrant.latMin,
@@ -274,6 +273,18 @@
 									bodyWrapper.appendChild(rowWrapper);
 								}
 
+								const openQuadrantModal = () => {
+									const quadrantData: QuadrantData = {
+										lat: quadrant.latMin,
+										lon: quadrant.lonMin,
+										quadrantBounds: quadrant,
+										analyzedAreaData: recommendedPlantForArea.features_used,
+										plantRecommendation: recommendedPlantForArea.prediction
+									};
+									quadrantModalStore.updateQuadrant(quadrantData);
+									quadrantModalStore.openModal();
+								};
+
 								L.rectangle(
 									[
 										[quadrant.latMin, quadrant.lonMin],
@@ -285,18 +296,36 @@
 										fillOpacity: 0.6
 									}
 								)
-									.on('click', () => {
-										const quadrantData: QuadrantData = {
-											lat: quadrant.latMin,
-											lon: quadrant.lonMin,
-											quadrantBounds: quadrant,
-											analyzedAreaData: recommendedPlantForArea.features_used,
-											plantRecommendation: recommendedPlantForArea.prediction
-										};
-										quadrantModalStore.updateQuadrant(quadrantData);
-										quadrantModalStore.openModal();
-									})
+									.on('click', openQuadrantModal)
 									.addTo(map);
+
+								// Add a marker with the scientific name at the center of the rectangle
+								const centerLat = (quadrant.latMin + quadrant.latMax) / 2;
+								const centerLon = (quadrant.lonMin + quadrant.lonMax) / 2;
+								const scientificName = recommendedPlantForArea.prediction.cientific_name || '';
+								const scientificNameWrapper = document.createElement('div');
+								bodyWrapper.appendChild(scientificNameWrapper);
+								L.marker([centerLat, centerLon], {
+									icon: L.divIcon({
+										html: (() => {
+											const div = document.createElement('div');
+											div.className =
+												'bg-white/80 rounded-md px-2 py-0.5 text-xs font-bold text-green-800 border border-green-200 shadow-sm text-center';
+											div.textContent = scientificName;
+											return div.outerHTML;
+										})(),
+										className: '',
+										iconSize: [120, 24],
+										iconAnchor: [60, 12]
+									})
+								})
+									.on('dblclick', openQuadrantModal)
+									.on('click', () => {
+										if (!map) return;
+
+										map.setView([centerLat, centerLon], 15);
+									})
+									.addTo(map as Map);
 							}
 						} catch (e) {
 							console.error('Error processing quadrant:', e);
@@ -349,8 +378,6 @@
 			mapState.clearDrawings();
 		}
 	});
-
-	$inspect(mapState.processingQuadrants);
 </script>
 
 <div bind:this={mapContainer} class="map"></div>

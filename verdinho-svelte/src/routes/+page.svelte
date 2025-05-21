@@ -2,6 +2,7 @@
 	import Map from '$lib/components/Map.svelte';
 	import SidePanel from '$lib/components/SidePanel.svelte';
 	import QuadrantModal from '$lib/components/quadrant-modal/quadrant-modal.svelte';
+	import MapFooter from '@/components/map-footer.svelte';
 
 	let isLoading = $state(true);
 
@@ -24,6 +25,7 @@
 	{:else}
 		<main class="h-full w-full">
 			<Map />
+			<MapFooter />
 			<SidePanel />
 			<QuadrantModal />
 		</main>

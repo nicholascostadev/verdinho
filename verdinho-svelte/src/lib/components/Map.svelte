@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Map, Rectangle, LatLngBoundsExpression, LeafletEventHandlerFn } from 'leaflet';
-	import { mapState, type QuadrantBounds, type QuadrantData } from '$lib/stores/mapStore.svelte';
+	import type { Map, Rectangle, LeafletEventHandlerFn } from 'leaflet';
+	import { mapState, type QuadrantData } from '$lib/stores/mapStore.svelte';
 	import { getRecommendedPlant } from '../../services/http/get-recommended-plant';
 	import { quadrantModalStore } from '@/stores/quadrant-modal-store.svelte';
 	let mapContainer: HTMLElement | null = $state(null);
@@ -21,18 +21,22 @@
 		value: 'ml-1!'
 	});
 
+	let isProcessingQuadrant = $state(false);
+
 	$effect(() => {
 		const createMap = async () => {
 			// Dynamically import Leaflet only on client side
-			const leaflet = await import('leaflet');
+
+			const [leaflet] = await Promise.all([
+				await import('leaflet'),
+				// Import the CSS
+				import('leaflet/dist/leaflet.css'),
+				// Import Leaflet Draw plugin
+				import('leaflet-draw/dist/leaflet.draw.css'),
+				import('leaflet-draw')
+			]);
+
 			L = leaflet.default;
-
-			// Import the CSS
-			await import('leaflet/dist/leaflet.css');
-
-			// Import Leaflet Draw plugin
-			await import('leaflet-draw/dist/leaflet.draw.css');
-			await import('leaflet-draw');
 
 			// Fix the "type is not defined" error by defining the missing readableArea function
 			if (L.GeometryUtil) {
@@ -122,7 +126,7 @@
 				// Initialize draw controls
 				mapState.drawnItems = new L.FeatureGroup();
 				if (map && mapState.drawnItems) {
-					map.addLayer(mapState.drawnItems);
+					(map as Map).addLayer(mapState.drawnItems);
 
 					const drawControl = new L.Control.Draw({
 						draw: {
@@ -207,15 +211,108 @@
 		return Math.ceil(steps);
 	}
 
+	$effect(() => {
+		if (!map) return;
+
+		if (!isProcessingQuadrant && mapState.processingQuadrants.length > 0 && map && L) {
+			isProcessingQuadrant = true;
+			const quadrant = mapState.processingQuadrants[0];
+			const processQuadrant = async () => {
+				try {
+					const recommendedPlantForArea = await getRecommendedPlant({
+						latMin: quadrant.latMin,
+						lonMin: quadrant.lonMin,
+						latMax: quadrant.latMax,
+						lonMax: quadrant.lonMax
+					});
+
+					if (recommendedPlantForArea) {
+						const quadrantData: QuadrantData = {
+							lat: quadrant.latMin,
+							lon: quadrant.lonMin,
+							quadrantBounds: quadrant,
+							plantRecommendation: recommendedPlantForArea.prediction,
+							analyzedAreaData: recommendedPlantForArea.features_used
+						};
+						mapState.addQuadrant(quadrantData);
+
+						const popup = popupClasses();
+						const bodyWrapper = document.createElement('div');
+						bodyWrapper.classList.add(...popup.body.split(' '));
+
+						for (const key in recommendedPlantForArea.prediction) {
+							const rowWrapper = document.createElement('div');
+							rowWrapper.classList.add(...popup.row.split(' '));
+							const icon = document.createElement('span');
+							icon.classList.add(...popup.icon.split(' '));
+							const label = document.createElement('strong');
+							label.classList.add(...popup.label.split(' '));
+							const value = document.createElement('span');
+							value.classList.add(...popup.value.split(' '));
+							value.textContent = `${key}: ${recommendedPlantForArea.prediction[key as keyof typeof recommendedPlantForArea.prediction]}`;
+							rowWrapper.appendChild(icon);
+							rowWrapper.appendChild(label);
+							rowWrapper.appendChild(value);
+							bodyWrapper.appendChild(rowWrapper);
+						}
+						for (const key in recommendedPlantForArea.features_used) {
+							const rowWrapper = document.createElement('div');
+							rowWrapper.classList.add(...popup.row.split(' '));
+							const icon = document.createElement('span');
+							icon.classList.add(...popup.icon.split(' '));
+							const label = document.createElement('strong');
+							label.classList.add(...popup.label.split(' '));
+							const value = document.createElement('span');
+							value.classList.add(...popup.value.split(' '));
+							value.textContent = `${key}: ${recommendedPlantForArea.features_used[key as keyof typeof recommendedPlantForArea.features_used]}`;
+							rowWrapper.appendChild(icon);
+							rowWrapper.appendChild(label);
+							rowWrapper.appendChild(value);
+							bodyWrapper.appendChild(rowWrapper);
+						}
+
+						L.rectangle(
+							[
+								[quadrant.latMin, quadrant.lonMin],
+								[quadrant.latMax, quadrant.lonMax]
+							],
+							{
+								color: 'oklch(79.2% 0.209 151.711)',
+								weight: 1,
+								fillOpacity: 0.6
+							}
+						)
+							.on('click', () => {
+								const quadrantData: QuadrantData = {
+									lat: quadrant.latMin,
+									lon: quadrant.lonMin,
+									quadrantBounds: quadrant,
+									analyzedAreaData: recommendedPlantForArea.features_used,
+									plantRecommendation: recommendedPlantForArea.prediction
+								};
+								quadrantModalStore.updateQuadrant(quadrantData);
+								quadrantModalStore.openModal();
+							})
+							.addTo(map);
+					}
+				} catch (e) {
+					console.error('Error processing quadrant:', e);
+					mapState.removeProcessingQuadrant(quadrant);
+				} finally {
+					mapState.removeProcessingQuadrant(quadrant);
+					isProcessingQuadrant = false;
+				}
+			};
+			processQuadrant();
+		}
+	});
+
 	async function generateQuadrants(latMin: number, lonMin: number, latMax: number, lonMax: number) {
 		if (!map || !L) return;
 
 		const stepsLat = getSteps(latMin, latMax, SQUARE_SIZE);
 		const stepsLon = getSteps(lonMin, lonMax, SQUARE_SIZE);
-		const BATCH_SIZE = 2; // Process quadrants one at a time to avoid overwhelming the APIs
-		const toProcessQuadrants: QuadrantBounds[] = [];
 
-		// Add all processing quadrants before starting the batches
 		for (let i = 0; i < stepsLat; i++) {
 			for (let j = 0; j < stepsLon; j++) {
 				const lat = latMin + i * SQUARE_SIZE;
@@ -230,132 +327,10 @@
 
 				if (!mapState.hasQuadrantWithSameArea(quadrantBounds)) {
 					mapState.addProcessingQuadrant(quadrantBounds);
-					toProcessQuadrants.push(quadrantBounds);
 				}
 			}
 		}
 
-		// Process quadrants in batches to avoid overwhelming the backend
-		for (let i = 0; i < toProcessQuadrants.length; i += BATCH_SIZE) {
-			const batch = toProcessQuadrants.slice(i, i + BATCH_SIZE);
-			const batchPromises = batch.map(async (quadrant) => {
-				const recommendedPlantForArea = await getRecommendedPlant({
-					latMin: quadrant.latMin,
-					lonMin: quadrant.lonMin,
-					latMax: quadrant.latMax,
-					lonMax: quadrant.lonMax
-				});
-
-				if (recommendedPlantForArea) {
-					// Create quadrant data for store
-					const quadrantData: QuadrantData = {
-						lat: quadrant.latMin,
-						lon: quadrant.lonMin,
-						quadrantBounds: quadrant,
-						plantRecommendation: recommendedPlantForArea.prediction,
-						analyzedAreaData: recommendedPlantForArea.features_used
-					};
-
-					mapState.addQuadrant(quadrantData);
-
-					const popup = popupClasses();
-					const bodyWrapper = document.createElement('div');
-					bodyWrapper.classList.add(...popup.body.split(' '));
-
-					// Add prediction data to popup
-					for (const key in recommendedPlantForArea.prediction) {
-						const rowWrapper = document.createElement('div');
-						rowWrapper.classList.add(...popup.row.split(' '));
-
-						const icon = document.createElement('span');
-						icon.classList.add(...popup.icon.split(' '));
-
-						const label = document.createElement('strong');
-						label.classList.add(...popup.label.split(' '));
-
-						const value = document.createElement('span');
-						value.classList.add(...popup.value.split(' '));
-						value.textContent = `${key}: ${recommendedPlantForArea.prediction[key as keyof typeof recommendedPlantForArea.prediction]}`;
-
-						rowWrapper.appendChild(icon);
-						rowWrapper.appendChild(label);
-						rowWrapper.appendChild(value);
-						bodyWrapper.appendChild(rowWrapper);
-					}
-
-					// Add features data to popup
-					for (const key in recommendedPlantForArea.features_used) {
-						const rowWrapper = document.createElement('div');
-						rowWrapper.classList.add(...popup.row.split(' '));
-
-						const icon = document.createElement('span');
-						icon.classList.add(...popup.icon.split(' '));
-
-						const label = document.createElement('strong');
-						label.classList.add(...popup.label.split(' '));
-
-						const value = document.createElement('span');
-						value.classList.add(...popup.value.split(' '));
-						value.textContent = `${key}: ${recommendedPlantForArea.features_used[key as keyof typeof recommendedPlantForArea.features_used]}`;
-
-						rowWrapper.appendChild(icon);
-						rowWrapper.appendChild(label);
-						rowWrapper.appendChild(value);
-						bodyWrapper.appendChild(rowWrapper);
-					}
-
-					mapState.removeProcessingQuadrant(quadrant);
-
-					return {
-						bounds: [
-							[quadrant.latMin, quadrant.lonMin],
-							[quadrant.latMax, quadrant.lonMax]
-						] as LatLngBoundsExpression,
-						color: 'oklch(79.2% 0.209 151.711)',
-						popup: bodyWrapper,
-						latitude: quadrant.latMin,
-						longitude: quadrant.lonMin,
-						predition: recommendedPlantForArea.prediction,
-						features_used: recommendedPlantForArea.features_used
-					};
-				}
-				return null;
-			});
-
-			// Wait for current batch to resolve
-			const results = await Promise.all(batchPromises);
-
-			// Add valid results to the map
-			results.forEach((result) => {
-				if (result && map && L) {
-					L.rectangle(result.bounds, {
-						color: result.color,
-						weight: 1,
-						fillOpacity: 0.6
-					})
-						.on('click', () => {
-							const quadrantData: QuadrantData = {
-								lat: result.latitude,
-								lon: result.longitude,
-								quadrantBounds: {
-									latMin: result.bounds[0][0],
-									lonMin: result.bounds[0][1],
-									latMax: result.bounds[1][0],
-									lonMax: result.bounds[1][1]
-								},
-								analyzedAreaData: result.features_used,
-								plantRecommendation: result.predition
-							};
-
-							quadrantModalStore.updateQuadrant(quadrantData);
-							quadrantModalStore.openModal();
-						})
-						.addTo(map);
-				}
-			});
-		}
-
-		// Set lastAnalyzedArea with timestamp
 		mapState.lastAnalyzedArea = {
 			latMin,
 			lonMin,

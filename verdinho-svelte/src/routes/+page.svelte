@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Map from '$lib/components/Map.svelte';
 	import SidePanel from '$lib/components/SidePanel.svelte';
+	import QuadrantModal from '$lib/components/quadrant-modal/quadrant-modal.svelte';
 
 	let isLoading = $state(true);
 
@@ -24,6 +25,7 @@
 		<main class="h-full w-full">
 			<Map />
 			<SidePanel />
+			<QuadrantModal />
 		</main>
 	{/if}
 </div>

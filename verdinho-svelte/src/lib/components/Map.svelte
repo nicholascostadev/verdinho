@@ -1,17 +1,10 @@
 <script lang="ts">
-	import type {
-		Map,
-		FeatureGroup,
-		Rectangle,
-		LatLngBoundsExpression,
-		LeafletEventHandlerFn
-	} from 'leaflet';
-	import { mapState, type QuadrantData } from '$lib/stores/mapStore.svelte';
+	import type { Map, Rectangle, LatLngBoundsExpression, LeafletEventHandlerFn } from 'leaflet';
+	import { mapState, type QuadrantBounds, type QuadrantData } from '$lib/stores/mapStore.svelte';
 	import { getRecommendedPlant } from '../../services/http/get-recommended-plant';
-
+	import { quadrantModalStore } from '@/stores/quadrant-modal-store.svelte';
 	let mapContainer: HTMLElement | null = $state(null);
 	let map: Map | null = $state(null);
-	let drawnItems: FeatureGroup | null = $state(null);
 	// We need to use any because of how we dynamically import Leaflet
 
 	let L: typeof import('leaflet');
@@ -46,14 +39,6 @@
 				// Make sure readableArea has the necessary type parameter by implementing it directly
 				L.GeometryUtil.readableArea = function (area, isMetric, precision) {
 					// This variable is needed by other parts of the leaflet-draw code
-					const type = isMetric ? 'metric' : 'imperial';
-
-					// Use the type in a console log to prevent "unused variable" warning
-					// This is important as other parts of the code rely on this variable existing
-					if (window.console && window.console.debug) {
-						window.console.debug(`Area displayed in ${type} units`);
-					}
-
 					if (isMetric) {
 						if (area >= 10000) {
 							return L.GeometryUtil.formattedNumber(String(area * 0.0001), precision) + ' ha';
@@ -135,9 +120,9 @@
 				}).addTo(map);
 
 				// Initialize draw controls
-				drawnItems = new L.FeatureGroup();
-				if (map && drawnItems) {
-					map.addLayer(drawnItems);
+				mapState.drawnItems = new L.FeatureGroup();
+				if (map && mapState.drawnItems) {
+					map.addLayer(mapState.drawnItems);
 
 					const drawControl = new L.Control.Draw({
 						draw: {
@@ -148,14 +133,14 @@
 							circlemarker: false,
 							rectangle: {
 								shapeOptions: {
-									color: 'red',
+									color: 'oklch(44.8% 0.119 151.328)',
 									weight: 2,
 									opacity: 0.5
 								},
 								metric: true
 							}
-						},
-						edit: { featureGroup: drawnItems }
+						}
+						// edit: { featureGroup: drawnItems }
 					});
 
 					map.addControl(drawControl);
@@ -164,22 +149,43 @@
 					map.on('draw:created', (async (event: { layer: Rectangle }) => {
 						console.log('Draw Created');
 						const layer = event.layer;
-						if (drawnItems) {
-							drawnItems.clearLayers();
-							drawnItems.addLayer(layer);
+						if (mapState.drawnItems) {
+							// mapState.drawnItems.clearLayers();
+							mapState.drawnItems.addLayer(layer);
 						}
 
 						const bounds = layer.getBounds();
-						const latMin = bounds.getSouthWest().lat;
-						const lonMin = bounds.getSouthWest().lng;
-						const latMax = bounds.getNorthEast().lat;
-						const lonMax = bounds.getNorthEast().lng;
+						// Snap bounds to grid
+						const latMin = Math.floor(bounds.getSouthWest().lat / SQUARE_SIZE) * SQUARE_SIZE;
+						const lonMin = Math.floor(bounds.getSouthWest().lng / SQUARE_SIZE) * SQUARE_SIZE;
+						const latMax = Math.ceil(bounds.getNorthEast().lat / SQUARE_SIZE) * SQUARE_SIZE;
+						const lonMax = Math.ceil(bounds.getNorthEast().lng / SQUARE_SIZE) * SQUARE_SIZE;
+
+						layer.setBounds([
+							[latMin, lonMin],
+							[latMax, lonMax]
+						]);
 
 						// Update store with selected area
 						mapState.selectedArea = { latMin, lonMin, latMax, lonMax };
 
-						await gerarQuadrantesNaArea(latMin, lonMin, latMax, lonMax);
+						generateQuadrants(latMin, lonMin, latMax, lonMax);
 					}) as LeafletEventHandlerFn);
+
+					// NEW: Generate quadrants for visible map bounds on moveend
+					// map.on('moveend', async () => {
+					// 	if (!map) return;
+					// 	const bounds = map.getBounds();
+					// 	const latMin = bounds.getSouthWest().lat;
+					// 	const lonMin = bounds.getSouthWest().lng;
+					// 	const latMax = bounds.getNorthEast().lat;
+					// 	const lonMax = bounds.getNorthEast().lng;
+
+					// 	// Optionally update selectedArea to reflect visible area
+					// 	mapState.selectedArea = { latMin, lonMin, latMax, lonMax };
+
+					//  generateQuadrants(latMin, lonMin, latMax, lonMax);
+					// });
 				}
 			}
 		};
@@ -191,133 +197,162 @@
 		};
 	});
 
-	async function gerarQuadrantesNaArea(
-		latMin: number,
-		lonMin: number,
-		latMax: number,
-		lonMax: number
-	) {
+	// Helper to handle floating point imprecision
+	function getSteps(min: number, max: number, size: number) {
+		const diff = max - min;
+		const steps = diff / size;
+		if (Math.abs(Math.round(steps) - steps) < 1e-8) {
+			return Math.round(steps);
+		}
+		return Math.ceil(steps);
+	}
+
+	async function generateQuadrants(latMin: number, lonMin: number, latMax: number, lonMax: number) {
 		if (!map || !L) return;
 
-		// Set processing state
-		mapState.isProcessing = true;
+		const stepsLat = getSteps(latMin, latMax, SQUARE_SIZE);
+		const stepsLon = getSteps(lonMin, lonMax, SQUARE_SIZE);
+		const BATCH_SIZE = 2; // Process quadrants one at a time to avoid overwhelming the APIs
+		const toProcessQuadrants: QuadrantBounds[] = [];
 
-		// Clear previous quadrants
-		mapState.quadrants = [];
-
-		const stepsLat = Math.ceil((latMax - latMin) / SQUARE_SIZE);
-		const stepsLon = Math.ceil((lonMax - lonMin) / SQUARE_SIZE);
-		const BATCH_SIZE = 4; // Process quadrants one at a time to avoid overwhelming the APIs
-
-		const newQuadrants: QuadrantData[] = [];
-
+		// Add all processing quadrants before starting the batches
 		for (let i = 0; i < stepsLat; i++) {
-			for (let j = 0; j < stepsLon; j += BATCH_SIZE) {
-				const batchPromises = [];
+			for (let j = 0; j < stepsLon; j++) {
+				const lat = latMin + i * SQUARE_SIZE;
+				const lon = lonMin + j * SQUARE_SIZE;
 
-				// Create a batch of promises for the current row
-				for (let k = 0; k < BATCH_SIZE && j + k < stepsLon; k++) {
-					const lat = latMin + i * SQUARE_SIZE;
-					const lon = lonMin + (j + k) * SQUARE_SIZE;
+				const quadrantBounds = {
+					latMin: lat,
+					lonMin: lon,
+					latMax: lat + SQUARE_SIZE,
+					lonMax: lon + SQUARE_SIZE
+				};
 
-					batchPromises.push(
-						(async () => {
-							const recommendedPlantForArea = await getRecommendedPlant({
-								latMin,
-								lonMin,
-								latMax,
-								lonMax
-							});
-
-							if (recommendedPlantForArea) {
-								// Create quadrant data for store
-								const quadrantData: QuadrantData = {
-									lat,
-									lon,
-									plantRecommendation: recommendedPlantForArea.prediction,
-									analyzedAreaData: recommendedPlantForArea.features_used
-								};
-
-								newQuadrants.push(quadrantData);
-
-								const popup = popupClasses();
-
-								const bodyWrapper = document.createElement('div');
-								bodyWrapper.classList.add(...popup.body.split(' '));
-
-								for (const key in recommendedPlantForArea.prediction) {
-									const rowWrapper = document.createElement('div');
-									rowWrapper.classList.add(...popup.row.split(' '));
-
-									const icon = document.createElement('span');
-									icon.classList.add(...popup.icon.split(' '));
-
-									const label = document.createElement('strong');
-									label.classList.add(...popup.label.split(' '));
-
-									const value = document.createElement('span');
-									value.classList.add(...popup.value.split(' '));
-									value.textContent = `${key}: ${recommendedPlantForArea.prediction[key as keyof typeof recommendedPlantForArea.prediction]}`;
-
-									rowWrapper.appendChild(icon);
-									rowWrapper.appendChild(label);
-									rowWrapper.appendChild(value);
-									bodyWrapper.appendChild(rowWrapper);
-								}
-
-								for (const key in recommendedPlantForArea.features_used) {
-									const rowWrapper = document.createElement('div');
-									rowWrapper.classList.add(...popup.row.split(' '));
-
-									const icon = document.createElement('span');
-									icon.classList.add(...popup.icon.split(' '));
-
-									const label = document.createElement('strong');
-									label.classList.add(...popup.label.split(' '));
-
-									const value = document.createElement('span');
-									value.classList.add(...popup.value.split(' '));
-									value.textContent = `${key}: ${recommendedPlantForArea.features_used[key as keyof typeof recommendedPlantForArea.features_used]}`;
-
-									rowWrapper.appendChild(icon);
-									rowWrapper.appendChild(label);
-									rowWrapper.appendChild(value);
-									bodyWrapper.appendChild(rowWrapper);
-								}
-
-								return {
-									bounds: [
-										[lat, lon],
-										[lat + SQUARE_SIZE, lon + SQUARE_SIZE]
-									] as LatLngBoundsExpression,
-									color: '#FF0000',
-									popup: bodyWrapper
-								};
-							}
-							return null;
-						})()
-					);
+				if (!mapState.hasQuadrantWithSameArea(quadrantBounds)) {
+					mapState.addProcessingQuadrant(quadrantBounds);
+					toProcessQuadrants.push(quadrantBounds);
 				}
+			}
+		}
 
-				// Wait for all promises in the batch to resolve
-				const results = await Promise.all(batchPromises);
-
-				// Add valid results to the map
-				results.forEach((result) => {
-					if (result && map && L) {
-						L.rectangle(result.bounds, {
-							color: result.color,
-							weight: 1,
-							fillOpacity: 0.6
-						})
-							.bindPopup(result.popup)
-							.addTo(map);
-					}
+		// Process quadrants in batches to avoid overwhelming the backend
+		for (let i = 0; i < toProcessQuadrants.length; i += BATCH_SIZE) {
+			const batch = toProcessQuadrants.slice(i, i + BATCH_SIZE);
+			const batchPromises = batch.map(async (quadrant) => {
+				const recommendedPlantForArea = await getRecommendedPlant({
+					latMin: quadrant.latMin,
+					lonMin: quadrant.lonMin,
+					latMax: quadrant.latMax,
+					lonMax: quadrant.lonMax
 				});
 
-				// Update the store with current quadrants
-				mapState.quadrants = newQuadrants;
-			}
+				if (recommendedPlantForArea) {
+					// Create quadrant data for store
+					const quadrantData: QuadrantData = {
+						lat: quadrant.latMin,
+						lon: quadrant.lonMin,
+						quadrantBounds: quadrant,
+						plantRecommendation: recommendedPlantForArea.prediction,
+						analyzedAreaData: recommendedPlantForArea.features_used
+					};
+
+					mapState.addQuadrant(quadrantData);
+
+					const popup = popupClasses();
+					const bodyWrapper = document.createElement('div');
+					bodyWrapper.classList.add(...popup.body.split(' '));
+
+					// Add prediction data to popup
+					for (const key in recommendedPlantForArea.prediction) {
+						const rowWrapper = document.createElement('div');
+						rowWrapper.classList.add(...popup.row.split(' '));
+
+						const icon = document.createElement('span');
+						icon.classList.add(...popup.icon.split(' '));
+
+						const label = document.createElement('strong');
+						label.classList.add(...popup.label.split(' '));
+
+						const value = document.createElement('span');
+						value.classList.add(...popup.value.split(' '));
+						value.textContent = `${key}: ${recommendedPlantForArea.prediction[key as keyof typeof recommendedPlantForArea.prediction]}`;
+
+						rowWrapper.appendChild(icon);
+						rowWrapper.appendChild(label);
+						rowWrapper.appendChild(value);
+						bodyWrapper.appendChild(rowWrapper);
+					}
+
+					// Add features data to popup
+					for (const key in recommendedPlantForArea.features_used) {
+						const rowWrapper = document.createElement('div');
+						rowWrapper.classList.add(...popup.row.split(' '));
+
+						const icon = document.createElement('span');
+						icon.classList.add(...popup.icon.split(' '));
+
+						const label = document.createElement('strong');
+						label.classList.add(...popup.label.split(' '));
+
+						const value = document.createElement('span');
+						value.classList.add(...popup.value.split(' '));
+						value.textContent = `${key}: ${recommendedPlantForArea.features_used[key as keyof typeof recommendedPlantForArea.features_used]}`;
+
+						rowWrapper.appendChild(icon);
+						rowWrapper.appendChild(label);
+						rowWrapper.appendChild(value);
+						bodyWrapper.appendChild(rowWrapper);
+					}
+
+					mapState.removeProcessingQuadrant(quadrant);
+
+					return {
+						bounds: [
+							[quadrant.latMin, quadrant.lonMin],
+							[quadrant.latMax, quadrant.lonMax]
+						] as LatLngBoundsExpression,
+						color: 'oklch(79.2% 0.209 151.711)',
+						popup: bodyWrapper,
+						latitude: quadrant.latMin,
+						longitude: quadrant.lonMin,
+						predition: recommendedPlantForArea.prediction,
+						features_used: recommendedPlantForArea.features_used
+					};
+				}
+				return null;
+			});
+
+			// Wait for current batch to resolve
+			const results = await Promise.all(batchPromises);
+
+			// Add valid results to the map
+			results.forEach((result) => {
+				if (result && map && L) {
+					L.rectangle(result.bounds, {
+						color: result.color,
+						weight: 1,
+						fillOpacity: 0.6
+					})
+						.on('click', () => {
+							const quadrantData: QuadrantData = {
+								lat: result.latitude,
+								lon: result.longitude,
+								quadrantBounds: {
+									latMin: result.bounds[0][0],
+									lonMin: result.bounds[0][1],
+									latMax: result.bounds[1][0],
+									lonMax: result.bounds[1][1]
+								},
+								analyzedAreaData: result.features_used,
+								plantRecommendation: result.predition
+							};
+
+							quadrantModalStore.updateQuadrant(quadrantData);
+							quadrantModalStore.openModal();
+						})
+						.addTo(map);
+				}
+			});
 		}
 
 		// Set lastAnalyzedArea with timestamp
@@ -328,10 +363,15 @@
 			lonMax,
 			timestamp: Date.now()
 		};
-
-		// Set processing state to false
-		mapState.isProcessing = false;
 	}
+
+	$effect(() => {
+		if (!mapState.isProcessing) {
+			mapState.clearDrawings();
+		}
+	});
+
+	$inspect(mapState.processingQuadrants);
 </script>
 
 <div bind:this={mapContainer} class="map"></div>

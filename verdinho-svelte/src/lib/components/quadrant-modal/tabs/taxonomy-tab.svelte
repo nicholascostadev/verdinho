@@ -42,7 +42,7 @@
 
 <div class="max-w-full space-y-6 pb-4">
 	<div class="grid w-full gap-8 md:grid-cols-2">
-		<div class="max-h-[350px]">
+		<div class="sm:max-h-[350px]">
 			<PlantGallery cientificName={quadrant.plantRecommendation.cientific_name} />
 		</div>
 

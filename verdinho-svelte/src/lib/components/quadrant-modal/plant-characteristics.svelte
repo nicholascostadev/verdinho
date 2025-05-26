@@ -2,9 +2,11 @@
 	import { Info, Leaf } from '@lucide/svelte';
 	import MarkdownRenderer from '../markdown-renderer.svelte';
 	import * as Tooltip from '../ui/tooltip';
+	import { Skeleton } from '../ui/skeleton';
 
 	let response = $state('');
-	let shouldFetch = $state(true);
+	let isFetching = $state(true);
+	let shouldFetch = true;
 
 	const {
 		cientificName
@@ -15,9 +17,11 @@
 	$effect(() => {
 		if (!shouldFetch || !cientificName) return;
 
+		isFetching = true;
 		fetch(`/api/describe?plant_name=${cientificName}`, {
 			headers: { 'Content-Type': 'application/json' }
 		}).then(async (res) => {
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 			const reader = res.body?.getReader();
 			if (!reader) {
 				throw new Error('Response body is not a ReadableStream');
@@ -25,9 +29,13 @@
 			let accumulatedResponse = '';
 			while (true) {
 				const { done, value } = await reader.read();
-				if (done) break;
+				if (done) {
+					response = response.slice(0, -3);
+					break;
+				}
 				accumulatedResponse += new TextDecoder().decode(value);
-				response = accumulatedResponse;
+				response = accumulatedResponse + '...';
+				isFetching = false;
 			}
 		});
 	});
@@ -54,7 +62,28 @@
 		</Tooltip.Provider>
 	</div>
 
-	{#if response}
+	{#if isFetching && !response}
+		<div class="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
+			<Skeleton class="h-24 w-full" />
+			<div>
+				<Skeleton class="mt-8 h-6 w-36 max-w-full" />
+			</div>
+			<div class="space-y-2">
+				<div class="flex items-center gap-4">
+					<Skeleton class="h-4 w-4" />
+					<Skeleton class="h-4 w-full" />
+				</div>
+				<div class="flex items-center gap-4">
+					<Skeleton class="h-4 w-4" />
+					<Skeleton class="h-4 w-full" />
+				</div>
+				<div class="flex items-center gap-4">
+					<Skeleton class="h-4 w-4" />
+					<Skeleton class="h-4 w-full" />
+				</div>
+			</div>
+		</div>
+	{:else if response}
 		<div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
 			<MarkdownRenderer text={response} />
 		</div>

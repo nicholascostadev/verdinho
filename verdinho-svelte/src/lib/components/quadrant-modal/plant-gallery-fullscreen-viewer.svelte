@@ -16,7 +16,7 @@
 	>
 		<Expand class="h-4 w-4 text-white" />
 	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-h-fit sm:max-w-[80lvh]">
+	<Dialog.Content class="max-w-full sm:max-w-7xl">
 		<PlantGallery {cientificName} isFullScreenViewing />
 	</Dialog.Content>
 </Dialog.Root>

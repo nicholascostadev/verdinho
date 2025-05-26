@@ -32,9 +32,12 @@
 			<Carousel.Content>
 				{#each data as item (item.identifier)}
 					<Carousel.Item class={cn(isFullScreenViewing && 'h-full')}>
-						<div class={cn('relative h-auto w-full', isFullScreenViewing && 'h-full')}>
+						<div class="relative h-full w-full">
 							<img
-								class={cn('h-auto w-full object-cover', isFullScreenViewing && 'object-contain')}
+								class={cn(
+									'h-full w-full object-cover',
+									isFullScreenViewing && 'h-full object-contain'
+								)}
 								src={item.identifier}
 								alt={cientificName}
 							/>

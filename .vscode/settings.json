@@ -1,5 +1,7 @@
 {
     "python.analysis.extraPaths": [
         "./ia"
-    ]
+    ],
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
 }

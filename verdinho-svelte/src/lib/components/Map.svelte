@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Map, Rectangle, LeafletEventHandlerFn } from 'leaflet';
 	import { mapState, type QuadrantData } from '$lib/stores/mapStore.svelte';
-	import { getRecommendedPlant } from '../../services/http/get-recommended-plant';
 	import { quadrantModalStore } from '@/stores/quadrant-modal-store.svelte';
+	import { getRecommendedPlant } from '../../services/http/get-recommended-plant';
 	let mapContainer: HTMLElement | null = $state(null);
 	let map: Map | null = $state(null);
 	// We need to use any because of how we dynamically import Leaflet
@@ -43,16 +43,18 @@
 					// This variable is needed by other parts of the leaflet-draw code
 					if (isMetric) {
 						if (area >= 10000) {
-							return L.GeometryUtil.formattedNumber(String(area * 0.0001), precision) + ' ha';
+							return (
+								L.GeometryUtil.formattedNumber(String(area * 0.0001), precision as number) + ' ha'
+							);
 						} else {
-							return L.GeometryUtil.formattedNumber(String(area), precision) + ' m²';
+							return L.GeometryUtil.formattedNumber(String(area), precision as number) + ' m²';
 						}
 					} else {
 						const acres = area * 0.00024711;
 						if (acres >= 1) {
-							return L.GeometryUtil.formattedNumber(String(acres), precision) + ' acres';
+							return L.GeometryUtil.formattedNumber(String(acres), precision as number) + ' acres';
 						} else {
-							return L.GeometryUtil.formattedNumber(String(area), precision) + ' ft²';
+							return L.GeometryUtil.formattedNumber(String(area), precision as number) + ' ft²';
 						}
 					}
 				};

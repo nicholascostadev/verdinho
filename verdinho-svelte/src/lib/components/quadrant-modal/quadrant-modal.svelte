@@ -2,12 +2,12 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { quadrantModalStore } from '$lib/stores/quadrant-modal-store.svelte';
 	import { Badge } from '../ui/badge';
-	import { Button } from '../ui/button';
 	import { Leaf, Thermometer, MapPin } from '@lucide/svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import ClimateTab from './tabs/climate-tab.svelte';
 	import TaxonomyTab from './tabs/taxonomy-tab.svelte';
 	import LocationTab from './tabs/location-tab.svelte';
+	import { cn } from '@/utils';
 
 	let activeTab: 'taxonomy' | 'climate' | 'location' = $state('taxonomy');
 
@@ -20,11 +20,11 @@
 
 {#if quadrantModalStore.quadrant}
 	<Dialog.Root bind:open={quadrantModalStore.isOpen}>
-		<Dialog.Content class="overflow-clip p-0 sm:max-w-3xl">
+		<Dialog.Content class="overflow-clip p-0 sm:max-w-4xl">
 			<Tabs.Root bind:value={activeTab}>
 				<Dialog.Header class="bg-green-50 px-6 pt-6">
-					<div class="flex items-start justify-between">
-						<div>
+					<div class="flex w-full items-start justify-between">
+						<div class="w-full">
 							<Badge variant="outline" class="mb-2 bg-green-100 text-green-800">
 								Planta Recomendada
 							</Badge>
@@ -37,47 +37,41 @@
 						</div>
 					</div>
 
-					<Tabs.List class="bg-transparent shadow-none">
-						<Tabs.Trigger
-							value="taxonomy"
-							class="rounded-none border-0 border-b-2 px-4 text-green-600 data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-800 data-[state=active]:shadow-none"
-						>
-							<Leaf class="mr-2 h-4 w-4" />
-							Taxonomia
-						</Tabs.Trigger>
-						<Tabs.Trigger
-							value="climate"
-							class="rounded-none border-0 border-b-2 px-4 text-green-600 data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-800 data-[state=active]:shadow-none"
-						>
-							<Thermometer class="mr-2 h-4 w-4" />
-							Clima
-						</Tabs.Trigger>
-						<Tabs.Trigger
-							value="location"
-							class="rounded-none border-0 border-b-2 px-4 text-green-600 data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-800 data-[state=active]:shadow-none"
-						>
-							<MapPin class="mr-2 h-4 w-4" />
-							Localização
-						</Tabs.Trigger>
-					</Tabs.List>
+					<div class="flex w-full justify-center sm:justify-start">
+						<Tabs.List class="w-full bg-transparent shadow-none sm:w-fit">
+							<Tabs.Trigger
+								value="taxonomy"
+								class="rounded-none border-0 border-b-2 px-4 text-green-600 data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-800 data-[state=active]:shadow-none"
+							>
+								<Leaf class="mr-2 h-4 w-4" />
+								Taxonomia
+							</Tabs.Trigger>
+							<Tabs.Trigger
+								value="climate"
+								class="rounded-none border-0 border-b-2 px-4 text-green-600 data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-800 data-[state=active]:shadow-none"
+							>
+								<Thermometer class="mr-2 h-4 w-4" />
+								Clima
+							</Tabs.Trigger>
+							<Tabs.Trigger
+								value="location"
+								class="rounded-none border-0 border-b-2 px-4 text-green-600 data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-800 data-[state=active]:shadow-none"
+							>
+								<MapPin class="mr-2 h-4 w-4" />
+								Localização
+							</Tabs.Trigger>
+						</Tabs.List>
+					</div>
 				</Dialog.Header>
 
-				<div class="grid grid-cols-1 gap-6 p-6 md:grid-cols-3">
-					<div class="flex flex-col items-center justify-center md:col-span-1">
-						<div
-							class="relative aspect-square w-full overflow-hidden rounded-lg border border-green-100 bg-green-50"
-						>
-							<!-- <img
-							src={data.imageUrl || '/placeholder.svg?height=200&width=200'}
-							alt={data.scientificName}
-							fill
-							class="object-cover"
-						/> -->
-						</div>
-						<Button variant="outline" class="mt-4 w-full">Ver detalhes completos</Button>
-					</div>
-
-					<div class="md:col-span-2">
+				<div class="grid max-h-[calc(100lvh-157px)] gap-6 overflow-y-auto p-4 sm:p-6">
+					<div
+						class={cn(
+							'w-full max-w-full md:col-span-2',
+							activeTab === 'taxonomy' && 'md:col-span-2'
+						)}
+						data-tab={activeTab}
+					>
 						<Tabs.Content value="taxonomy">
 							<TaxonomyTab quadrant={quadrantModalStore.quadrant} />
 						</Tabs.Content>

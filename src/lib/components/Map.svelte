@@ -151,7 +151,6 @@
 
 					// Handle map events
 					map.on('draw:created', (async (event: { layer: Rectangle }) => {
-						console.log('Draw Created');
 						const layer = event.layer;
 						if (mapState.drawnItems) {
 							// mapState.drawnItems.clearLayers();

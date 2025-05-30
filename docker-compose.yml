@@ -5,12 +5,11 @@ services:
       dockerfile: dockerfile
     ports:
       - '3000:3000'
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - VITE_API_URL=${VITE_API_URL}
-    env_file:
-      - .env
+    networks:
+      - verdinho-shared-network
     restart: unless-stopped
     container_name: verdinho-svelte
+
+networks:
+  verdinho-shared-network:
+    external: true

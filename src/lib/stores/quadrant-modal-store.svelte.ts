@@ -1,11 +1,10 @@
-import type { QuadrantData } from "./mapStore.svelte";
+import type { QuadrantData } from './mapStore.svelte';
 
 class QuadrantModalStore {
-  quadrant: QuadrantData | null = $state(null);
-  isOpen = $state(false);
+	quadrant: QuadrantData | null = $state(null);
+	isOpen = $state(false);
 
 	updateQuadrant(quadrant: QuadrantData) {
-    console.log("Updating")
 		this.quadrant = quadrant;
 	}
 

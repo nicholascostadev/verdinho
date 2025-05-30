@@ -11,15 +11,23 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
 COPY .npmrc* ./
 
-# Install dependencies stage
-FROM base AS deps
+# Install all dependencies (including dev) for building
+FROM base AS deps-all
 RUN apk add --no-cache libc6-compat
 RUN pnpm install --frozen-lockfile
 
+# Install only production dependencies
+FROM base AS deps-prod
+RUN apk add --no-cache libc6-compat
+RUN pnpm install --prod --frozen-lockfile
+
 # Build stage
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps-all /app/node_modules ./node_modules
 COPY . .
+
+# Copy the Docker environment file and rename it to .env.local
+COPY .env.docker .env.local
 
 # Build the application
 RUN pnpm run build
@@ -32,14 +40,10 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 sveltekit
 
-# Copy built application and necessary files
+# Copy built application and production node_modules
 COPY --from=builder --chown=sveltekit:nodejs /app/build ./
+COPY --from=deps-prod --chown=sveltekit:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=sveltekit:nodejs /app/package.json .
-COPY --from=builder --chown=sveltekit:nodejs /app/pnpm-lock.yaml* .
-
-# Install pnpm and production dependencies only
-RUN npm install -g pnpm
-RUN pnpm install --prod --frozen-lockfile
 
 # Switch to non-root user
 USER sveltekit

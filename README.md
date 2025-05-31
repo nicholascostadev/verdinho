@@ -2,6 +2,41 @@
 
 A modern plant identification and recommendation application built with SvelteKit, AI-powered plant analysis, and interactive maps.
 
+## 🛠️ Local Development Setup
+
+For developers who want to run the project locally and make modifications:
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (version 18 or higher)
+- [pnpm](https://pnpm.io/) package manager
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/)
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd verdinho
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+3. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   ```
+
+4. **Configure your environment variables in `.env`:**
+   ```bash
+   GEMINI_API_KEY=your_gemini_api_key_here
+   VITE_API_URL=http://127.0.0.1:8000
+   ```
+
+
 ## 🚀 Quick Start with Docker (Recommended for non-developers)
 
 If you're not familiar with web development or just want to quickly run the application, use Docker:
@@ -41,40 +76,6 @@ If you're not familiar with web development or just want to quickly run the appl
 6. **Stop the application:**
    ```bash
    docker-compose down
-   ```
-
-## 🛠️ Local Development Setup
-
-For developers who want to run the project locally and make modifications:
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (version 18 or higher)
-- [pnpm](https://pnpm.io/) package manager
-- A Gemini API key from [Google AI Studio](https://aistudio.google.com/)
-
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd verdinho
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pnpm install
-   ```
-
-3. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-
-4. **Configure your environment variables in `.env`:**
-   ```bash
-   GEMINI_API_KEY=your_gemini_api_key_here
-   VITE_API_URL=http://127.0.0.1:8000
    ```
 
 ### Environment Variables
